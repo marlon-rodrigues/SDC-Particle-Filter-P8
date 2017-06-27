@@ -65,15 +65,15 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 			double velocity_yaw_rate = velocity / yaw_rate;
 			double yaw_rate_dt = yaw_rate * delta_t;
 
-			particles[i].x = particles[i].x + velocity_yaw_rate * ( sin(particles[i].theta + yaw_rate_dt) - sin(particles[i].theta) );
-			particles[i].y = particles[i].y + velocity_yaw_rate * ( cos(particles[i].theta) - cos(particles[i].theta + yaw_rate_dt) );
-			particles[i].theta = particles[i].theta + yaw_rate_dt;
+			particles[i].x += particles[i].x + velocity_yaw_rate * ( sin(particles[i].theta + yaw_rate_dt) - sin(particles[i].theta) );
+			particles[i].y += particles[i].y + velocity_yaw_rate * ( cos(particles[i].theta) - cos(particles[i].theta + yaw_rate_dt) );
+			particles[i].theta += particles[i].theta + yaw_rate_dt;
 		} else {
 			// No curvature - straight 
 			double velocity_dt = velocity * delta_t;
 
-			particles[i].x = particles[i].x + velocity_dt* cos(particles[i].theta);
-			particles[i].y = particles[i].y + velocity_dt * sin(particles[i].theta);
+			particles[i].x += particles[i].x + velocity_dt* cos(particles[i].theta);
+			particles[i].y += particles[i].y + velocity_dt * sin(particles[i].theta);
 			// final yaw_rate = initial yaw_rate, so no change is required
 		}
 
@@ -94,6 +94,23 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
+	// Find the predicted measurement that is closest to each observed measurement and assign the observed 
+	// measurement to this particle landmark
+	for(unsigned int i=0; i<observations.size(); ++i) {
+		unsigned int closest_j = std::numeric_limits<unsigned int>::max();
+		double closest_distance = std::numeric_limits<double>::max();
+
+		for(unsigned int j=0; j<predicted.size(); ++j) {
+			double distance_j = dist(observations[i].x, observations[i].y, predicted[j].x, predicted[j].y);
+
+			if(distance_j < closest_distance) {
+				closest_distance = distance_j;
+				closest_j = j;
+			}
+		}
+
+		observations[i].id = closest_j;
+	}
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
