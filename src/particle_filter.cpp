@@ -55,6 +55,37 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
 
+	// Class to generate pseudo-random numbers for the Gaussian noise to each particle
+	default_random_engine gen;
+
+	for(int i=0; i<num_particles; i++) {
+		if (fabs(yaw_rate) > 0.00001) {
+			// yaw_rate curvature - turning
+
+			double velocity_yaw_rate = velocity / yaw_rate;
+			double yaw_rate_dt = yaw_rate * delta_t;
+
+			particles[i].x = particles[i].x + velocity_yaw_rate * ( sin(particles[i].theta + yaw_rate_dt) - sin(particles[i].theta) );
+			particles[i].y = particles[i].y + velocity_yaw_rate * ( cos(particles[i].theta) - cos(particles[i].theta + yaw_rate_dt) );
+			particles[i].theta = particles[i].theta + yaw_rate_dt;
+		} else {
+			// No curvature - straight 
+			double velocity_dt = velocity * delta_t;
+
+			particles[i].x = particles[i].x + velocity_dt* cos(particles[i].theta);
+			particles[i].y = particles[i].y + velocity_dt * sin(particles[i].theta);
+			// final yaw_rate = initial yaw_rate, so no change is required
+		}
+
+		// Creates a normal (Gaussian) distribution for x, y and theta
+		normal_distribution<double> dist_x(particles[i].x, std_pos[0]);
+		normal_distribution<double> dist_y(particles[i].y, std_pos[1]);
+		normal_distribution<double> dist_theta(particles[i].theta, std_pos[2]);
+
+		particles[i].x = dist_x(gen);
+		particles[i].y = dist_y(gen);
+		particles[i].theta = dist_theta(gen);
+	}
 }
 
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
