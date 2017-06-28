@@ -1,8 +1,8 @@
 /*
  * particle_filter.cpp
  *
- *  Created on: Dec 12, 2016
- *      Author: Tiffany Huang
+ *  Created on: Jun 01, 2017
+ *  Author: Marlon Rodrigues
  */
 
 #include <random>
