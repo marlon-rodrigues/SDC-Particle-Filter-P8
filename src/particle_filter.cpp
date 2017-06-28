@@ -68,15 +68,16 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 			double velocity_yaw_rate = velocity / yaw_rate;
 			double yaw_rate_dt = yaw_rate * delta_t;
 
-			particles[i].x += particles[i].x + velocity_yaw_rate * ( sin(particles[i].theta + yaw_rate_dt) - sin(particles[i].theta) );
-			particles[i].y += particles[i].y + velocity_yaw_rate * ( cos(particles[i].theta) - cos(particles[i].theta + yaw_rate_dt) );
-			particles[i].theta += particles[i].theta + yaw_rate_dt;
+			particles[i].x += velocity_yaw_rate * ( sin(particles[i].theta + yaw_rate_dt) - sin(particles[i].theta) );
+			particles[i].y += velocity_yaw_rate * ( cos(particles[i].theta) - cos(particles[i].theta + yaw_rate_dt) );
+			particles[i].theta += yaw_rate_dt;
 		} else {
 			// No curvature - straight 
+
 			double velocity_dt = velocity * delta_t;
 
-			particles[i].x += particles[i].x + velocity_dt* cos(particles[i].theta);
-			particles[i].y += particles[i].y + velocity_dt * sin(particles[i].theta);
+			particles[i].x += velocity_dt* cos(particles[i].theta);
+			particles[i].y += velocity_dt * sin(particles[i].theta);
 			// final yaw_rate = initial yaw_rate, so no change is required
 		}
 
@@ -99,20 +100,21 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 
 	// Find the predicted measurement that is closest to each observed measurement and assign the observed 
 	// measurement to this particle landmark
+	
 	for(unsigned int i=0; i<observations.size(); ++i) {
-		unsigned int closest_j = std::numeric_limits<unsigned int>::max();
-		double closest_distance = std::numeric_limits<double>::max();
+		unsigned int nearest = std::numeric_limits<unsigned int>::max();
+		double shortest_distance = std::numeric_limits<double>::max();
 
 		for(unsigned int j=0; j<predicted.size(); ++j) {
 			double distance_j = dist(observations[i].x, observations[i].y, predicted[j].x, predicted[j].y);
 
-			if(distance_j < closest_distance) {
-				closest_distance = distance_j;
-				closest_j = j;
+			if(distance_j < shortest_distance) {
+				shortest_distance = distance_j;
+				nearest = j;
 			}
 		}
 
-		observations[i].id = closest_j;
+		observations[i].id = nearest;
 	}
 }
 
@@ -159,7 +161,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 			if(distance < sensor_range) {
 				LandmarkObs single_landmark;
 
-				single_landmark.id = map_landmarks.landmark_list[j].id_i;
+				single_landmark.id = 0; // ID will be replaced by the nearest one
+				//single_landmark.id = map_landmarks.landmark_list[j].id_i;
 				single_landmark.x = map_landmarks.landmark_list[j].x_f;
 				single_landmark.y = map_landmarks.landmark_list[j].y_f;
 
@@ -173,15 +176,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 		// Execute weights update
 		double probability = 1;
-		cout << "Map obs size: " << map_obs.size() << endl;
-		for(int j=0; j<map_obs.size(); ++j) {
-		//for(int j=0; j<transformed_observations.size(); ++j) {
-			double dx = transformed_observations[j].x - map_obs[j].x;
-			double dy = transformed_observations[j].y - map_obs[j].y;
+
+		for(int j=0; j<observations.size(); ++j) {
+			int m = transformed_observations[j].id;
+
+			double dx = transformed_observations[j].x - map_obs[m].x;
+			double dy = transformed_observations[j].y - map_obs[m].y;
 
 			probability *= 1.0 / (2 * M_PI * sigma_x * sigma_y) * exp(-dx * dx / (2 * sigma_x * sigma_x)) * exp(-dy * dy / (2 * sigma_y * sigma_y));
 		}
-		cout << "Probability: " << probability << endl;
+		
 		p.weight = probability;
 		weights[i] = probability; 
 	}
