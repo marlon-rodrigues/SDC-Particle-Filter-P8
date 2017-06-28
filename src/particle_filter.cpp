@@ -130,11 +130,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   http://planning.cs.uiuc.edu/node99.html
 
 	double sigma_x = std_landmark[0];
-	double sigma_y = std.landmark[1];
+	double sigma_y = std_landmark[1];
 
 	for(int i=0; i<particles.size(); ++i) {
 		// Collect all landmarks with sensor range of the current particle in a vector predicted
-		Particle p = particles.[i];
+		Particle p = particles[i];
 
 		// Transform observations from the particle coordinate system to the MAP system
 		std::vector<LandmarkObs> transformed_observations;
@@ -173,16 +173,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 		// Execute weights update
 		double probability = 1;
-
-		for(int j=0; j<transformed_observations.size(); ++j) {
+		cout << "Map obs size: " << map_obs.size() << endl;
+		for(int j=0; j<map_obs.size(); ++j) {
+		//for(int j=0; j<transformed_observations.size(); ++j) {
 			double dx = transformed_observations[j].x - map_obs[j].x;
 			double dy = transformed_observations[j].y - map_obs[j].y;
 
 			probability *= 1.0 / (2 * M_PI * sigma_x * sigma_y) * exp(-dx * dx / (2 * sigma_x * sigma_x)) * exp(-dy * dy / (2 * sigma_y * sigma_y));
 		}
-
+		cout << "Probability: " << probability << endl;
 		p.weight = probability;
-		weights[i] = probability;
+		weights[i] = probability; 
 	}
 }
 
@@ -191,6 +192,18 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+	// Class to generate pseudo-random numbers for the Gaussian noise to each particle
+	default_random_engine gen;
+
+	std::discrete_distribution<int> d(weights.begin(), weights.end());
+	std::vector<Particle> weighted_sample(num_particles);
+
+	for(int i=0; i<num_particles; ++i) {
+		int j = d(gen);
+		weighted_sample[i] = particles[j];
+	}
+
+	particles = weighted_sample;
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
