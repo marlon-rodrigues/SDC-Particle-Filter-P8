@@ -36,6 +36,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	normal_distribution<double> dist_y(y, std[1]);
 	normal_distribution<double> dist_theta(theta, std[2]);
 
+	// Initialize all weight to 1
+	weights.resize(num_particles, 1.0);
+
 	particles.resize(num_particles);
 
 	for(int i=0; i<num_particles; i++) {
@@ -125,6 +128,62 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+
+	double sigma_x = std_landmark[0];
+	double sigma_y = std.landmark[1];
+
+	for(int i=0; i<particles.size(); ++i) {
+		// Collect all landmarks with sensor range of the current particle in a vector predicted
+		Particle p = particles.[i];
+
+		// Transform observations from the particle coordinate system to the MAP system
+		std::vector<LandmarkObs> transformed_observations;
+
+		for(int j=0; j<observations.size(); ++j) {
+			LandmarkObs transformed_obs;
+
+			transformed_obs.x = observations[j].x * cos(p.theta) - observations[j].y * sin(p.theta) + p.x;
+			transformed_obs.y = observations[j].x * sin(p.theta) + observations[j].y * cos(p.theta) + p.y;
+			transformed_obs.id = observations[j].id;
+
+			transformed_observations.push_back(transformed_obs);
+		}
+
+		// Get all landmarks that are within sight of the particle
+		std::vector<LandmarkObs> map_obs;
+
+		for(int j=0; j<map_landmarks.landmark_list.size(); ++j) {
+			double distance = dist(p.x, p.y, map_landmarks.landmark_list[j].x_f, map_landmarks.landmark_list[j].y_f);
+
+				//if its within the sensor range, get landmark
+			if(distance < sensor_range) {
+				LandmarkObs single_landmark;
+
+				single_landmark.id = map_landmarks.landmark_list[j].id_i;
+				single_landmark.x = map_landmarks.landmark_list[j].x_f;
+				single_landmark.y = map_landmarks.landmark_list[j].y_f;
+
+				map_obs.push_back(single_landmark);
+			}
+		}
+
+		// Use the data association function to associate a single landmark with current particle (nearest neighbor)
+		// Note: transformed_observations is passed by reference
+		dataAssociation(map_obs, transformed_observations);
+
+		// Execute weights update
+		double probability = 1;
+
+		for(int j=0; j<transformed_observations.size(); ++j) {
+			double dx = transformed_observations[j].x - map_obs[j].x;
+			double dy = transformed_observations[j].y - map_obs[j].y;
+
+			probability *= 1.0 / (2 * M_PI * sigma_x * sigma_y) * exp(-dx * dx / (2 * sigma_x * sigma_x)) * exp(-dy * dy / (2 * sigma_y * sigma_y));
+		}
+
+		p.weight = probability;
+		weights[i] = probability;
+	}
 }
 
 void ParticleFilter::resample() {
